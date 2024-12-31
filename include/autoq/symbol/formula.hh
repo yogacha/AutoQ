@@ -111,10 +111,10 @@ public:
     {
         if (fa.vars != fb.vars)
         {
-            std::vector<int> union_vars, va = fa.vars, vb = fb.vars;
-            std::sort(va.begin(), va.end());
-            std::sort(vb.begin(), vb.end());
-            std::set_union(va.begin(), va.end(), vb.begin(), vb.end(), std::back_inserter(union_vars));
+            std::vector<int> union_vars, a = fa.vars, b = fb.vars;
+            std::sort(a.begin(), a.end());
+            std::sort(b.begin(), b.end());
+            std::set_union(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(union_vars));
             return unify(fa.to_variables(union_vars), fb.to_variables(union_vars));
         }
         if (fa.period > fb.period)
@@ -178,13 +178,12 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const Formula &f)
     {
-        os << "ω^" << 2 * f.period << " = 1; vars=";
+        os << "ω^" << 2 * f.period << " = 1; f(";
         for (int i : f.vars)
         {
             os << "x" << i << ",";
         }
-        os << std::endl;
-        os << "formula= ";
+        os << ")= ";
         for (auto &[key, val] : f.formula)
         {
             os << val << " ω^";
@@ -300,8 +299,7 @@ public:
         {
             THROW_AUTOQ_ERROR("The variable x must be in the variables.");
         }
-        return ( (fb + fa) + (fb - fa) * Formula(fa.period, {x}, {{{fa.period}, Complex::Complex(1)}})
-            ).divide_by_the_square_root_of_two(2).fraction_simplification();
+        return ((fb + fa) + (fb - fa) * Formula(fa.period, {x}, {{{fa.period}, Complex::Complex(1)}})).divide_by_the_square_root_of_two(2).fraction_simplification();
     }
 
     Formula &divide_by_the_square_root_of_two(int times = 1)
@@ -338,6 +336,7 @@ public:
         int k;
         std::vector<int> new_key;
         auto res = Formula(period, vars);
+        boost::rational<boost::multiprecision::cpp_int> theta;
         for (auto &[key, val] : formula)
         {
             k = 0;
@@ -350,14 +349,15 @@ public:
                     new_key[i] = 0;
                 }
             }
-            res.formula[new_key] = res.formula[new_key] + val * Complex::Complex::Angle(
-                boost::rational<boost::multiprecision::cpp_int>(k, 2 * period));
+            theta = boost::rational<boost::multiprecision::cpp_int>(k, 2 * period);
+            res.formula[new_key] = res.formula[new_key] + AUTOQ::Complex::Complex(val).counterclockwise(theta);
         }
         return res;
     }
 
     Formula qft(const std::vector<int> &qubits) const
     {
+        // NOTE: we assume all qubits are in the variables
         std::vector<int> eval_var;
         for (size_t i = 0; i < qubits.size(); i++)
         {
@@ -367,11 +367,25 @@ public:
             }
             else
             {
-                eval_var.push_back(qubits[i]);
+                eval_var.push_back(std::distance(vars.begin(), std::find(vars.begin(), vars.end(), qubits[i])));
             }
         }
-
         Formula res(period, vars);
+        std::vector<std::optional<bool>> assign(vars.size(), std::nullopt);
+        std::vector<int> new_key(vars.size(), 0);
+        boost::rational<boost::multiprecision::cpp_int> theta;
+        bool ki;
+        int n = 1 << qubits.size();
+        for (int k = 0; k < n; k++)  // k = [k_1 k_2 ... k_n]
+        {
+            for (size_t i = 0; i < eval_var.size(); i++)
+            {
+                ki = (k & (1 << i)) != 0;  // i-th bit of k
+                assign[eval_var[i]] = ki;
+                new_key[eval_var[i]] = k * (n >> (i + 1));
+            }
+            res = res + evaluate(assign) * Formula(n >> 1, vars, {{new_key, Complex::Complex::One()}});
+        }
         return res;
     }
 

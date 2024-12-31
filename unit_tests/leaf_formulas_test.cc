@@ -84,16 +84,25 @@ BOOST_AUTO_TEST_CASE(formula_negation)
     Formula f1(2, {1, 2}, {{{3, 2}, AUTOQ::Complex::Complex(1)}});
     Formula f2(2, {1, 2}, {{{1, 2}, AUTOQ::Complex::Complex::Angle(theta)}});
     BOOST_REQUIRE(f1.negation(1) == f2);
-
 }
 
 BOOST_AUTO_TEST_CASE(formula_ite)
 {
-    Formula f1 = Formula::ite(1, 
-        Formula(2, {1}, {{{1}, AUTOQ::Complex::Complex(-1)}}), 
-        Formula(2, {1}, {{{2}, AUTOQ::Complex::Complex::One()}}));
+    Formula f1 = Formula::ite(1,
+                              Formula(2, {1}, {{{1}, AUTOQ::Complex::Complex(-1)}}),
+                              Formula(2, {1}, {{{2}, AUTOQ::Complex::Complex::One()}}));
     Formula f2 = Formula(2, {1}, {{{3}, AUTOQ::Complex::Complex::One()}});
 
     BOOST_REQUIRE(f1.evaluate({true}).fraction_simplification() == f2.evaluate({true}));
     BOOST_REQUIRE(f1.evaluate({false}).fraction_simplification() == f2.evaluate({false}));
+}
+
+BOOST_AUTO_TEST_CASE(formula_qft)
+{
+    Formula f1 = Formula::One().to_variables({1, 3});
+    Formula f2 = f1.to_variables({1, 2, 3}).qft({3, 1}).to_period(8);
+    Formula f3 = f1.to_period(8).qft({3, 1});
+    std::cout << f2 << std::endl;
+    std::cout << f3 << std::endl;
+    BOOST_REQUIRE(f2 == f3);
 }
