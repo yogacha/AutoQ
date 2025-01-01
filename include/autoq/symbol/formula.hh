@@ -376,17 +376,22 @@ public:
         boost::rational<boost::multiprecision::cpp_int> theta;
         bool ki;
         int n = 1 << qubits.size();
-        for (int k = 0; k < n; k++)  // k = [k_1 k_2 ... k_n]
+        for (int k = 0; k < n; k++) // k = [k_1 k_2 ... k_n]
         {
             for (size_t i = 0; i < eval_var.size(); i++)
             {
-                ki = (k & (1 << i)) != 0;  // i-th bit of k
+                ki = (k & (1 << i)) != 0; // i-th bit of k
                 assign[eval_var[i]] = ki;
                 new_key[eval_var[i]] = k * (n >> (i + 1));
             }
             res = res + evaluate(assign) * Formula(n >> 1, vars, {{new_key, Complex::Complex::One()}});
         }
         return res;
+    }
+
+    Formula unitary(const int &qubit, const Complex::Complex &u11, const Complex::Complex &u12, const Complex::Complex &u21, const Complex::Complex &u22) const
+    {
+        return Formula::ite(qubit, Formula(u22), Formula(u11)) * (*this) + Formula::ite(qubit, Formula(u21), Formula(u12)) * negation(qubit);
     }
 
     bool isZero() const
